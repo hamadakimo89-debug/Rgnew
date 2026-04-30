@@ -1,43 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
-
-  <head>
-    <meta charset="UTF-8">
-    <title>Untitled</title>
-    <link rel="stylesheet" href="./style.css">
-
-  </head>
-    
-  <body>
-  <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام الحجوزات الاحترافي</title>
+    
     <!-- Bootstrap للتنسيق -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="نظام الحجوزات">
+    
+    <!-- CSS مخصص (استبدل style.css) -->
     <style>
         .page { display: none; }
         .active { display: block; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .card { box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
     <!-- صفحة تسجيل الدخول -->
     <div id="loginPage" class="container mt-5 active">
         <div class="card p-4 mx-auto" style="max-width: 400px;">
-            <h3>تسجيل الدخول</h3>
+            <h3 class="text-center mb-4">تسجيل الدخول</h3>
             <input type="email" id="email" class="form-control my-2" placeholder="البريد الإلكتروني">
             <input type="password" id="password" class="form-control my-2" placeholder="كلمة المرور">
             <button id="loginBtn" class="btn btn-primary w-100">دخول</button>
         </div>
     </div>
 
-    <!-- التطبيق (يظهر بعد الدخول) -->
+    <!-- التطبيق الرئيسي -->
     <div id="appPage" class="page">
         <nav class="navbar navbar-dark bg-primary p-3">
-            <span class="navbar-brand">لوحة التحكم</span>
+            <span class="navbar-brand">لوحة التحكم الاحترافية</span>
             <button id="logoutBtn" class="btn btn-danger btn-sm">خروج</button>
         </nav>
         
@@ -47,31 +47,39 @@
                     <div class="card p-3">
                         <h5>إضافة حجز جديد</h5>
                         <input type="text" id="clientName" class="form-control my-2" placeholder="اسم العميل">
-                        <button id="saveBtn" class="btn btn-success">حفظ</button>
+                        <button id="saveBtn" class="btn btn-success w-100">حفظ الحجز</button>
+                        <p id="status" class="mt-2"></p>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card p-3">
                         <h5>الإحصائيات</h5>
-                        <h2 id="bookingCount">0</h2>
-                        <p>إجمالي الحجوزات</p>
+                        <h2 id="bookingCount" class="text-primary">0</h2>
+                        <p>إجمالي الحجوزات اليوم</p>
                     </div>
                 </div>
             </div>
             <div class="mt-4">
                 <h5>سجل الحجوزات</h5>
-                <table class="table table-striped">
-                    <tbody id="logList"></tbody>
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr><th>الاسم</th><th>التاريخ</th></tr>
+                    </thead>
+                    <tbody id="logList">
+                        <tr><td colspan="2">جاري التحميل...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script type="module">
+        // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyAoAkInAywhZLvD0XMV6zDN24oOxP3sm7s",
             authDomain: "ragb-phone-4fde3.firebaseapp.com",
@@ -88,32 +96,56 @@
         // تسجيل الدخول
         document.getElementById('loginBtn').onclick = async () => {
             try {
-                await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value);
-                document.getElementById('loginPage').classList.remove('active');
-                document.getElementById('appPage').classList.add('active');
-                loadAllData();
-            } catch (e) { alert("خطأ في الدخول!"); }
+                await signInWithEmailAndPassword(auth, 
+                    document.getElementById('email').value, 
+                    document.getElementById('password').value
+                );
+            } catch (e) { 
+                alert("خطأ في الدخول: تأكد من البيانات");
+            }
         };
 
-        // حفظ البيانات
+        // حفظ الحجز
         document.getElementById('saveBtn').onclick = async () => {
             const name = document.getElementById('clientName').value;
-            await addDoc(collection(db, "bookings"), { name, date: new Date().toLocaleDateString() });
-            loadAllData();
+            if(!name) return alert("اكتب اسم العميل أولاً");
+            
+            try {
+                await addDoc(collection(db, "bookings"), { 
+                    name, 
+                    date: new Date().toLocaleString('ar-EG')
+                });
+                document.getElementById('status').innerText = "تم الحفظ بنجاح! ✅";
+                document.getElementById('clientName').value = "";
+                loadAllData();
+            } catch (e) {
+                document.getElementById('status').innerText = "خطأ: " + e.message;
+            }
         };
 
         // تحميل البيانات
         async function loadAllData() {
             const snap = await getDocs(collection(db, "bookings"));
             document.getElementById('bookingCount').innerText = snap.size;
-            document.getElementById('logList').innerHTML = snap.docs.map(d => `<tr><td>${d.data().name}</td></tr>`).join('');
+            document.getElementById('logList').innerHTML = snap.docs.map(d => 
+                `<tr>
+                    <td>${d.data().name}</td>
+                    <td>${d.data().date || 'غير محدد'}</td>
+                </tr>`
+            ).join('');
         }
-        
+
+        // تسجيل الخروج
         document.getElementById('logoutBtn').onclick = () => location.reload();
+
+        // مراقبة حالة تسجيل الدخول
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginPage').classList.remove('active');
+                document.getElementById('appPage').classList.add('active');
+                loadAllData();
+            }
+        });
     </script>
 </body>
-</html>
-    
-  </body>
-  
 </html>
